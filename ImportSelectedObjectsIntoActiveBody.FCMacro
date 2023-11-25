@@ -1,0 +1,94 @@
+# -*- coding: utf-8 -*-
+
+
+import FreeCAD
+
+
+def createSubShapeBinderForObject(body: Part.BodyBase, obj: object) -> None:
+    label: str = obj.Label
+
+    try:
+        binder = body.newObject('PartDesign::SubShapeBinder','Binder' + label)
+        binder.Label2 = obj.Label2
+        binder.Support = [(obj)]
+    except ValueError as e:
+        FreeCAD.Console.PrintWarning(e)
+
+
+def copyViewObjectAttributes(src: Gui.ViewProviderDocumentObject, dest: Gui.ViewProviderDocumentObject) -> None:
+    attributesNames = list(vars(src).keys())
+
+    for attributeName in attributesNames:
+        # properties are listed before functions
+        if callable(getattr(dest, attributeName)):
+            # all properties have been copied. Can't copy functions so we're
+            # exiting the loop.
+            break
+
+        setattr(dest, attributeName, getattr(src, attributeName))
+
+
+def importDatumPlaneIntoBody(body: Part.BodyBase, datumPlane: Part.Feature) -> None:
+    label: str = datumPlane.Label
+
+    binder = body.newObject('PartDesign::SubShapeBinder','Binder' + label)
+    binder.Support = [(datumPlane)]
+    binder.Visibility = False
+
+    bindedDatumPlane = body.newObject('PartDesign::Plane', label)
+    bindedDatumPlane.Label2 = datumPlane.Label2
+    bindedDatumPlane.Support = [(binder), "Face1"]
+    bindedDatumPlane.MapMode = "FlatFace"
+    bindedDatumPlane.MapReversed = False
+
+    # copy the DatumPlane appearence (color, transparency, selectable, etc...)
+    copyViewObjectAttributes(datumPlane.ViewObject, bindedDatumPlane.ViewObject)
+
+
+def importObjectIntoBody(body: Part.BodyBase, obj: object) -> None:
+    match obj.TypeId:
+        case 'PartDesign::Plane':
+            importDatumPlaneIntoBody(body, obj)
+        case _:
+            createSubShapeBinderForObject(body, obj)
+
+
+def getActiveBody() -> Part.BodyBase:
+    activeBody = Gui.ActiveDocument.ActiveView.getActiveObject('pdbody')
+
+    if not activeBody:
+        raise ValueError("Please activate a body to use this macro.")
+
+    return activeBody
+
+
+def getSelectedObjects() -> list:
+    return Gui.Selection.getSelection()
+
+
+def importSelectedObjectsIntoActiveBody() -> None:
+    activeBody: Part.BodyBase = None
+
+    try:
+        activeBody = getActiveBody()
+    except ValueError as e:
+        FreeCAD.Console.PrintError(e)
+        return
+
+    selectedObjects: list = getSelectedObjects()
+
+    if (0 == len(selectedObjects)):
+        FreeCAD.Console.PrintWarning('Please select at least one object.')
+        return
+
+    for selectedObject in selectedObjects:
+        importObjectIntoBody(activeBody, selectedObject)
+
+    FreeCAD.ActiveDocument.recompute()
+
+
+def main():
+    importSelectedObjectsIntoActiveBody()
+
+
+main()
