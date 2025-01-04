@@ -37,7 +37,7 @@ def importDatumPlaneIntoBody(body: Part.BodyBase, datumPlane: Part.Feature) -> N
 
     bindedDatumPlane = body.newObject('PartDesign::Plane', label)
     bindedDatumPlane.Label2 = datumPlane.Label2
-    bindedDatumPlane.Support = [(binder), "Face1"]
+    bindedDatumPlane.AttachmentSupport = [(binder), "Face1"]
     bindedDatumPlane.MapMode = "FlatFace"
     bindedDatumPlane.MapReversed = False
 
